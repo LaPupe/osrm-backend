@@ -299,10 +299,10 @@ int Extractor::run()
                                 }
                                 nodesRef[stop_id] = indice;
                                 
-                                /*if(strcmp("POPHA_02", stop_id) == 0 || strcmp("CIILL_02", stop_id) == 0) {
+                                if(strcmp("POPHA_02", stop_id) == 0 || strcmp("FASAV_04", stop_id) == 0) {
                                     printf("%d \n", nodesRef[stop_id]);
                                     printf("%lf  %lf\n", lat, lon);
-                                }*/
+                                }
 
                                 int indice2 = 0;
                                 double diff2 = 999999;
@@ -318,8 +318,8 @@ int Extractor::run()
                                 }
 
                                 result_way.clear();
-                                result_way.forward_speed = 8;
-                                result_way.backward_speed = 8;
+                                result_way.forward_speed = 5;
+                                result_way.backward_speed = 5;
                                 result_way.duration = -1;
                                 result_way.name = PyString_AsString(PyList_GetItem(pStop, 0));
 
@@ -365,9 +365,9 @@ int Extractor::run()
                             int source = nodesRef[PyString_AsString(PyList_GetItem(pEdge, 0))];
                             int target = nodesRef[PyString_AsString(PyList_GetItem(pEdge, 1))];
 
-                            // if(source == target) {
-                            //     printf("%s =  %d     %s = %d    %s\n", PyString_AsString(PyList_GetItem(pEdge, 0)), source, PyString_AsString(PyList_GetItem(pEdge, 1)), target, PyString_AsString(PyList_GetItem(pEdge, 3)));
-                            // }
+                            if(source == target || strcmp("FASAV_04", PyString_AsString(PyList_GetItem(pEdge, 0))) == 0  || strcmp("FASAV_04", PyString_AsString(PyList_GetItem(pEdge, 1))) == 0) {
+                                printf("%s =  %d     %s = %d    %s\n", PyString_AsString(PyList_GetItem(pEdge, 0)), source, PyString_AsString(PyList_GetItem(pEdge, 1)), target, PyString_AsString(PyList_GetItem(pEdge, 3)));
+                            }
                             
 
                             extractor_callbacks->ProcessWayGtfs(source, target, result_way, number_of_ways);
