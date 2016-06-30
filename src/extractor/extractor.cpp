@@ -225,7 +225,7 @@ int Extractor::run()
             for (const auto &result : resulting_ways)
             {
                 extractor_callbacks->ProcessWay(
-                    static_cast<const osmium::Way &>(*(osm_elements[result.first])), result.second);
+                    static_cast<const osmium::Way &>(*(osm_elements[result.first])), result.second, used_node_id);
             }
             for (const auto &result : resulting_restrictions)
             {
@@ -237,6 +237,8 @@ int Extractor::run()
         //tableau associatif pour stocker used nodes
         std::map<int, util::DoubleCoordinate> usedNodes;
 
+        //tableau associatif pour enregistrer tous les nodes utilisés
+        //permet de etablir le lien entre 1 stop et les chemins
         for (auto iterator : used_node_id) {
             usedNodes[iterator] = osmNodes[iterator];
             //printf("%d   %d\n", usedNodes[osmNodes[iterator]], iterator);
@@ -296,10 +298,11 @@ int Extractor::run()
                                     }
                                 }
                                 nodesRef[stop_id] = indice;
-                                if(strcmp("POPHA_02", stop_id) == 0 || strcmp("CIILL_02", stop_id) == 0) {
+                                
+                                /*if(strcmp("POPHA_02", stop_id) == 0 || strcmp("CIILL_02", stop_id) == 0) {
                                     printf("%d \n", nodesRef[stop_id]);
                                     printf("%lf  %lf\n", lat, lon);
-                                }
+                                }*/
 
                                 int indice2 = 0;
                                 double diff2 = 999999;
@@ -333,9 +336,6 @@ int Extractor::run()
 
                                 int source = indice;
                                 int target = indice2;
-                                if(source == target) {
-                                    printf("%d     %d   \n",  source, target);
-                                }
 
                                 extractor_callbacks->ProcessWayGtfs(source, target, result_way, number_of_ways);
 
@@ -365,9 +365,9 @@ int Extractor::run()
                             int source = nodesRef[PyString_AsString(PyList_GetItem(pEdge, 0))];
                             int target = nodesRef[PyString_AsString(PyList_GetItem(pEdge, 1))];
 
-                            if(source == target) {
-                                printf("%s =  %d     %s = %d    %s\n", PyString_AsString(PyList_GetItem(pEdge, 0)), source, PyString_AsString(PyList_GetItem(pEdge, 1)), target, PyString_AsString(PyList_GetItem(pEdge, 3)));
-                            }
+                            // if(source == target) {
+                            //     printf("%s =  %d     %s = %d    %s\n", PyString_AsString(PyList_GetItem(pEdge, 0)), source, PyString_AsString(PyList_GetItem(pEdge, 1)), target, PyString_AsString(PyList_GetItem(pEdge, 3)));
+                            // }
                             
 
                             extractor_callbacks->ProcessWayGtfs(source, target, result_way, number_of_ways);
@@ -401,7 +401,7 @@ int Extractor::run()
 
         Py_Finalize();
 
-        
+
         TIMER_STOP(parsing);
         util::SimpleLogger().Write() << "Parsing finished after " << TIMER_SEC(parsing)
                                      << " seconds";

@@ -82,9 +82,5 @@ def stop_list():
 	return list_gtfs
 
 
-def searchBusDepartureTime(trajet, stop):
-
-
-
 if __name__ == '__main__':
     stop_list()

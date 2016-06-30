@@ -56,7 +56,7 @@ class ExtractorCallbacks
     void ProcessRestriction(const boost::optional<InputRestrictionContainer> &restriction);
 
     // warning: caller needs to take care of synchronization!
-    void ProcessWay(const osmium::Way &current_way, const ExtractionWay &result_way);
+    void ProcessWay(const osmium::Way &current_way, const ExtractionWay &result_way, std::vector<int> &used_node_id);
 
     //processWay of public transport from gtfs parser
     void ProcessWayGtfs(const int source, const int target, const ExtractionWay &parsed_way, const int id_way);

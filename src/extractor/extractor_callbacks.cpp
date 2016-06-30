@@ -101,7 +101,7 @@ void ExtractorCallbacks::ProcessRestriction(
  *
  * warning: caller needs to take care of synchronization!
  */
-void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const ExtractionWay &parsed_way)
+void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const ExtractionWay &parsed_way, std::vector<int> &used_node_id)
 {
     if (((0 >= parsed_way.forward_speed) ||
          (TRAVEL_MODE_INACCESSIBLE == parsed_way.forward_travel_mode)) &&
@@ -330,6 +330,11 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
                    std::back_inserter(external_memory.used_node_id_list),
                    [](const osmium::NodeRef &ref) { return OSMNodeID{static_cast<std::uint64_t>(ref.ref())}; });
 
+    //enregistre tous les nodes utilisés dans un vecteur
+    for( const auto it : input_way.nodes()) {
+          used_node_id.push_back(it.ref());
+      }
+
     const bool is_opposite_way = TRAVEL_MODE_INACCESSIBLE == parsed_way.forward_travel_mode;
 
     // traverse way in reverse in this case
@@ -524,7 +529,7 @@ void ExtractorCallbacks::ProcessWayGtfs(const int source, const int target, cons
         name_id = name_iterator->second;
     }
 
-    external_memory.used_node_id_list.reserve(external_memory.used_node_id_list.size() + 2);
+    //external_memory.used_node_id_list.reserve(external_memory.used_node_id_list.size() + 2);
 
     external_memory.used_node_id_list.push_back(OSMNodeID{static_cast<std::uint64_t>(source)});
     external_memory.used_node_id_list.push_back(OSMNodeID{static_cast<std::uint64_t>(target)});
