@@ -417,5 +417,97 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
              OSMNodeID{static_cast<std::uint64_t>(input_way.nodes()[0].ref())}});
     }
 }
+
+
+/*
+* Add new edges from gtfs parser
+* Representation of public transport :  bus , tram
+*/
+void ExtractorCallbacks::ProcessWayGtfs(const int source, const int target, const ExtractionWay &parsed_way, const int id_way)
+{
+    if (source == target) {
+        return;
+    }
+
+    InternalExtractorEdge::WeightData forward_weight_data;
+    InternalExtractorEdge::WeightData backward_weight_data;
+
+    if (0 < parsed_way.duration)
+    {
+
+        forward_weight_data.duration = parsed_way.duration;
+        forward_weight_data.type = InternalExtractorEdge::WeightType::WAY_DURATION;
+        backward_weight_data.duration = parsed_way.duration;
+        backward_weight_data.type = InternalExtractorEdge::WeightType::WAY_DURATION;
+    }
+    else
+    {
+        //Set forward and backward data       
+        forward_weight_data.speed = parsed_way.forward_speed;
+        forward_weight_data.type = InternalExtractorEdge::WeightType::SPEED;       
+        backward_weight_data.speed = parsed_way.backward_speed;
+        backward_weight_data.type = InternalExtractorEdge::WeightType::SPEED;
+    }
+
+    //road_classification bus or tram
+    //TODO : make the difference between bus and tram
+    guidance::RoadClassificationData road_classification;
+    road_classification.road_class = guidance::functionalRoadClassFromTag("bus");
+
+    const constexpr auto MAX_STRING_LENGTH = 255u;
+
+    // Get the unique identifier for the street name
+    const auto name_iterator = string_map.find(parsed_way.name);
+    unsigned name_id = external_memory.name_lengths.size();
+    if (string_map.end() == name_iterator)
+    {
+        auto name_length = std::min<unsigned>(MAX_STRING_LENGTH, parsed_way.name.size());
+
+        external_memory.name_char_data.reserve(name_id + name_length);
+        std::copy(parsed_way.name.c_str(),
+                  parsed_way.name.c_str() + name_length,
+                  std::back_inserter(external_memory.name_char_data));
+
+        external_memory.name_lengths.push_back(name_length);
+
+        auto pronunciation_length = std::min<unsigned>(255u, parsed_way.pronunciation.size());
+        std::copy(parsed_way.pronunciation.c_str(), parsed_way.pronunciation.c_str() + pronunciation_length,
+                  std::back_inserter(external_memory.name_char_data));
+        external_memory.name_lengths.push_back(pronunciation_length);
+
+        string_map.insert(std::make_pair(parsed_way.name, name_id));
+    }
+    else
+    {
+        name_id = name_iterator->second;
+    }
+
+
+    external_memory.used_node_id_list.push_back(OSMNodeID(source));
+    external_memory.used_node_id_list.push_back(OSMNodeID(target));
+
+    external_memory.all_edges_list.push_back(
+        InternalExtractorEdge(OSMNodeID(source),
+                              OSMNodeID(target),
+                              name_id,
+                              forward_weight_data,
+                              true,
+                              true,
+                              parsed_way.roundabout,
+                              parsed_way.is_access_restricted,
+                              parsed_way.is_startpoint,
+                              parsed_way.forward_travel_mode,
+                              false,
+                              road_classification));
+
+    external_memory.way_start_end_id_list.push_back(
+            {OSMWayID(id_way),
+             OSMNodeID(target),
+             OSMNodeID(source),
+             OSMNodeID(target),
+             OSMNodeID(source)});
+}
+
+
 }
 }
