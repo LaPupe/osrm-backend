@@ -45,7 +45,9 @@ ExtractorCallbacks::ExtractorCallbacks(ExtractionContainers &extraction_containe
  * warning: caller needs to take care of synchronization!
  */
 void ExtractorCallbacks::ProcessNode(const osmium::Node &input_node,
-                                     const ExtractionNode &result_node)
+                                     const ExtractionNode &result_node,
+                                     std::map<int, util::DoubleCoordinate> &bus_stop_osm, 
+                                     std::map<int, util::DoubleCoordinate> &osmNodes)
 {
     util::DoubleCoordinate location;
     location.lat = input_node.location().lat();
@@ -69,9 +71,9 @@ void ExtractorCallbacks::ProcessNode(const osmium::Node &input_node,
     }
 
     external_memory.all_nodes_list.push_back(
-        {util::toFixed(util::FloatLongitude(input_node.location().lon())),
-         util::toFixed(util::FloatLatitude(input_node.location().lat())),
-         OSMNodeID(input_node.id()),
+        {util::toFixed(util::FloatLongitude{input_node.location().lon()}),
+         util::toFixed(util::FloatLatitude{input_node.location().lat()}),
+         OSMNodeID({static_cast<std::uint64_t>(input_node.id())}),
          result_node.barrier,
          result_node.traffic_lights});
     osmNodes[input_node.id()] = location;
