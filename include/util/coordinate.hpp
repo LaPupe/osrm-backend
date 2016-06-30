@@ -190,6 +190,16 @@ struct FloatCoordinate
     friend std::ostream &operator<<(std::ostream &out, const FloatCoordinate coordinate);
 };
 
+
+/*
+*   utiliser pour les vecteurs 
+*/
+struct DoubleCoordinate {
+    double lon;
+    double lat;
+};
+
+
 bool operator==(const Coordinate lhs, const Coordinate rhs);
 bool operator==(const FloatCoordinate lhs, const FloatCoordinate rhs);
 std::ostream &operator<<(std::ostream &out, const Coordinate coordinate);

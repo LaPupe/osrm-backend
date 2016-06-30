@@ -47,12 +47,34 @@ ExtractorCallbacks::ExtractorCallbacks(ExtractionContainers &extraction_containe
 void ExtractorCallbacks::ProcessNode(const osmium::Node &input_node,
                                      const ExtractionNode &result_node)
 {
+    util::DoubleCoordinate location;
+    location.lat = input_node.location().lat();
+    location.lon = input_node.location().lon();
+    //list all bus stations nodes
+    const char *data1 = input_node.get_value_by_key("highway");
+    const char *data2 = input_node.get_value_by_key("railway");
+
+    if (data1)
+    {
+        if(strcmp("bus_stop", data1) == 0 ) {
+            
+            bus_stop_osm[input_node.id()] = location;
+        }
+        
+    } else if (data2) {
+        if(strcmp("tram_stop", data2) == 0) {
+            
+            bus_stop_osm[input_node.id()] = location;
+        }
+    }
+
     external_memory.all_nodes_list.push_back(
-        {util::toFixed(util::FloatLongitude{input_node.location().lon()}),
-         util::toFixed(util::FloatLatitude{input_node.location().lat()}),
-         OSMNodeID{static_cast<std::uint64_t>(input_node.id())},
+        {util::toFixed(util::FloatLongitude(input_node.location().lon())),
+         util::toFixed(util::FloatLatitude(input_node.location().lat())),
+         OSMNodeID(input_node.id()),
          result_node.barrier,
          result_node.traffic_lights});
+    osmNodes[input_node.id()] = location;
 }
 
 void ExtractorCallbacks::ProcessRestriction(
