@@ -458,7 +458,7 @@ void ExtractorCallbacks::ProcessWayGtfs(const int source, const int target, cons
 
     const constexpr auto MAX_STRING_LENGTH = 255u;
 
-    // Get the unique identifier for the street name
+    /*// Get the unique identifier for the street name
     const auto name_iterator = string_map.find(parsed_way.name);
     unsigned name_id = external_memory.name_lengths.size();
     if (string_map.end() == name_iterator)
@@ -482,15 +482,56 @@ void ExtractorCallbacks::ProcessWayGtfs(const int source, const int target, cons
     else
     {
         name_id = name_iterator->second;
+    }*/
+
+
+
+    const auto name_iterator = string_map.find(MapKey(parsed_way.name, parsed_way.destinations));
+    unsigned name_id = external_memory.name_lengths.size();
+    if (string_map.end() == name_iterator)
+    {
+        auto name_length = std::min<unsigned>(MAX_STRING_LENGTH, parsed_way.name.size());
+        auto destinations_length =
+            std::min<unsigned>(MAX_STRING_LENGTH, parsed_way.destinations.size());
+        auto pronunciation_length =
+            std::min<unsigned>(MAX_STRING_LENGTH, parsed_way.pronunciation.size());
+
+        external_memory.name_char_data.reserve(name_id + name_length + destinations_length +
+                                               pronunciation_length);
+
+        std::copy(parsed_way.name.c_str(),
+                  parsed_way.name.c_str() + name_length,
+                  std::back_inserter(external_memory.name_char_data));
+
+        std::copy(parsed_way.destinations.c_str(),
+                  parsed_way.destinations.c_str() + destinations_length,
+                  std::back_inserter(external_memory.name_char_data));
+
+        std::copy(parsed_way.pronunciation.c_str(),
+                  parsed_way.pronunciation.c_str() + pronunciation_length,
+                  std::back_inserter(external_memory.name_char_data));
+
+        external_memory.name_lengths.push_back(name_length);
+        external_memory.name_lengths.push_back(destinations_length);
+        external_memory.name_lengths.push_back(pronunciation_length);
+
+        auto k = MapKey{parsed_way.name, parsed_way.destinations};
+        auto v = MapVal{name_id};
+        string_map.emplace(std::move(k), std::move(v));
+    }
+    else
+    {
+        name_id = name_iterator->second;
     }
 
+    external_memory.used_node_id_list.reserve(external_memory.used_node_id_list.size() + 2);
 
-    external_memory.used_node_id_list.push_back(OSMNodeID(source));
-    external_memory.used_node_id_list.push_back(OSMNodeID(target));
+    external_memory.used_node_id_list.push_back(OSMNodeID{static_cast<std::uint64_t>(source)});
+    external_memory.used_node_id_list.push_back(OSMNodeID{static_cast<std::uint64_t>(target)});
 
     external_memory.all_edges_list.push_back(
-        InternalExtractorEdge(OSMNodeID(source),
-                              OSMNodeID(target),
+        InternalExtractorEdge(OSMNodeID{static_cast<std::uint64_t>(source)},
+                              OSMNodeID{static_cast<std::uint64_t>(target)},
                               name_id,
                               forward_weight_data,
                               true,
@@ -500,14 +541,15 @@ void ExtractorCallbacks::ProcessWayGtfs(const int source, const int target, cons
                               parsed_way.is_startpoint,
                               parsed_way.forward_travel_mode,
                               false,
+                              INVALID_LANE_DESCRIPTIONID,
                               road_classification));
 
     external_memory.way_start_end_id_list.push_back(
-            {OSMWayID(id_way),
-             OSMNodeID(target),
-             OSMNodeID(source),
-             OSMNodeID(target),
-             OSMNodeID(source)});
+            {OSMWayID{static_cast<std::uint32_t>(id_way)},
+             OSMNodeID{static_cast<std::uint64_t>(target)},
+             OSMNodeID{static_cast<std::uint64_t>(source)},
+             OSMNodeID{static_cast<std::uint64_t>(target)},
+             OSMNodeID{static_cast<std::uint64_t>(source)}});
 }
 
 
