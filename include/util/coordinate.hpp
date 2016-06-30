@@ -1,17 +1,13 @@
 /*
-
 Copyright (c) 2016, Project OSRM contributors
 All rights reserved.
-
 Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:
-
 Redistributions of source code must retain the above copyright notice, this list
 of conditions and the following disclaimer.
 Redistributions in binary form must reproduce the above copyright notice, this
 list of conditions and the following disclaimer in the documentation and/or
 other materials provided with the distribution.
-
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -22,7 +18,6 @@ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
 ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 */
 
 #ifndef COORDINATE_HPP_
@@ -61,7 +56,7 @@ inline FixedLatitude toFixed(const FloatLatitude floating)
 {
     const auto latitude = static_cast<double>(floating);
     const auto fixed = boost::numeric_cast<std::int32_t>(latitude * COORDINATE_PRECISION);
-    return FixedLatitude(fixed);
+    return FixedLatitude{fixed};
 }
 
 /**
@@ -75,7 +70,7 @@ inline FixedLongitude toFixed(const FloatLongitude floating)
 {
     const auto longitude = static_cast<double>(floating);
     const auto fixed = boost::numeric_cast<std::int32_t>(longitude * COORDINATE_PRECISION);
-    return FixedLongitude(fixed);
+    return FixedLongitude{fixed};
 }
 
 /**
@@ -89,7 +84,7 @@ inline FloatLatitude toFloating(const FixedLatitude fixed)
 {
     const auto latitude = static_cast<std::int32_t>(fixed);
     const auto floating = boost::numeric_cast<double>(latitude / COORDINATE_PRECISION);
-    return FloatLatitude(floating);
+    return FloatLatitude{floating};
 }
 
 /**
@@ -103,7 +98,7 @@ inline FloatLongitude toFloating(const FixedLongitude fixed)
 {
     const auto longitude = static_cast<std::int32_t>(fixed);
     const auto floating = boost::numeric_cast<double>(longitude / COORDINATE_PRECISION);
-    return FloatLongitude(floating);
+    return FloatLongitude{floating};
 }
 
 // fwd. decl.
@@ -127,7 +122,7 @@ struct Coordinate
     FixedLongitude lon;
     FixedLatitude lat;
 
-    Coordinate() : lon(std::numeric_limits<int>::min()), lat(std::numeric_limits<int>::min()) {}
+    Coordinate() : lon{std::numeric_limits<int>::min()}, lat{std::numeric_limits<int>::min()} {}
 
     Coordinate(const FloatCoordinate &other);
 
@@ -173,7 +168,7 @@ struct FloatCoordinate
     FloatLatitude lat;
 
     FloatCoordinate()
-        : lon(std::numeric_limits<double>::min()), lat(std::numeric_limits<double>::min())
+        : lon{std::numeric_limits<double>::min()}, lat{std::numeric_limits<double>::min()}
     {
     }
 
@@ -193,15 +188,6 @@ struct FloatCoordinate
     friend bool operator==(const FloatCoordinate lhs, const FloatCoordinate rhs);
     friend bool operator!=(const FloatCoordinate lhs, const FloatCoordinate rhs);
     friend std::ostream &operator<<(std::ostream &out, const FloatCoordinate coordinate);
-};
-
-
-/*
-*   utiliser pour les vecteurs 
-*/
-struct DoubleCoordinate {
-    double lon;
-    double lat;
 };
 
 bool operator==(const Coordinate lhs, const Coordinate rhs);
