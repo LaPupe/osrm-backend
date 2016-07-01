@@ -329,7 +329,7 @@ void ExtractionContainers::PrepareEdges(lua_State *segment_state)
         if (edge_iterator->result.osm_target_id < node_iterator->node_id)
         {
             util::SimpleLogger().Write(LogLevel::logWARNING)
-                << "Found invalid node reference "
+                << "Found invalid node reference 1 "
                 << static_cast<uint64_t>(edge_iterator->result.osm_target_id);
             edge_iterator->result.target = SPECIAL_NODEID;
             ++edge_iterator;
@@ -403,7 +403,7 @@ void ExtractionContainers::PrepareEdges(lua_State *segment_state)
     // Remove all remaining edges. They are invalid because there are no corresponding nodes for
     // them. This happens when using osmosis with bbox or polygon to extract smaller areas.
     auto markTargetsInvalid = [](InternalExtractorEdge &edge) {
-        util::SimpleLogger().Write(LogLevel::logWARNING) << "Found invalid node reference "
+        util::SimpleLogger().Write(LogLevel::logWARNING) << "Found invalid node reference 2 "
                                                          << edge.result.target;
         edge.result.target = SPECIAL_NODEID;
     };

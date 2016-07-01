@@ -50,13 +50,16 @@ class ExtractorCallbacks
     ExtractorCallbacks &operator=(const ExtractorCallbacks &) = delete;
 
     // warning: caller needs to take care of synchronization!
-    void ProcessNode(const osmium::Node &current_node, const ExtractionNode &result_node);
+    void ProcessNode(const osmium::Node &current_node, const ExtractionNode &result_node, std::map<int, util::DoubleCoordinate> &bus_stop_osm, std::map<int, util::DoubleCoordinate> &osmNodes);
 
     // warning: caller needs to take care of synchronization!
     void ProcessRestriction(const boost::optional<InputRestrictionContainer> &restriction);
 
     // warning: caller needs to take care of synchronization!
-    void ProcessWay(const osmium::Way &current_way, const ExtractionWay &result_way);
+    void ProcessWay(const osmium::Way &current_way, const ExtractionWay &result_way, std::vector<int> &used_node_id);
+
+    //processWay of public transport from gtfs parser
+    void ProcessWayGtfs(const int source, const int target, const ExtractionWay &parsed_way, const int id_way);
 };
 }
 }

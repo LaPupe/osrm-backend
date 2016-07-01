@@ -45,14 +45,38 @@ ExtractorCallbacks::ExtractorCallbacks(ExtractionContainers &extraction_containe
  * warning: caller needs to take care of synchronization!
  */
 void ExtractorCallbacks::ProcessNode(const osmium::Node &input_node,
-                                     const ExtractionNode &result_node)
+                                     const ExtractionNode &result_node,
+                                     std::map<int, util::DoubleCoordinate> &bus_stop_osm, 
+                                     std::map<int, util::DoubleCoordinate> &osmNodes)
 {
+    util::DoubleCoordinate location;
+    location.lat = input_node.location().lat();
+    location.lon = input_node.location().lon();
+    //list all bus stations nodes
+    const char *data1 = input_node.get_value_by_key("highway");
+    const char *data2 = input_node.get_value_by_key("railway");
+
+    if (data1)
+    {
+        if(strcmp("bus_stop", data1) == 0 ) {
+            
+            bus_stop_osm[input_node.id()] = location;
+        }
+        
+    } else if (data2) {
+        if(strcmp("tram_stop", data2) == 0) {
+            
+            bus_stop_osm[input_node.id()] = location;
+        }
+    }
+
     external_memory.all_nodes_list.push_back(
         {util::toFixed(util::FloatLongitude{input_node.location().lon()}),
          util::toFixed(util::FloatLatitude{input_node.location().lat()}),
-         OSMNodeID{static_cast<std::uint64_t>(input_node.id())},
+         OSMNodeID({static_cast<std::uint64_t>(input_node.id())}),
          result_node.barrier,
          result_node.traffic_lights});
+    osmNodes[input_node.id()] = location;
 }
 
 void ExtractorCallbacks::ProcessRestriction(
@@ -77,7 +101,7 @@ void ExtractorCallbacks::ProcessRestriction(
  *
  * warning: caller needs to take care of synchronization!
  */
-void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const ExtractionWay &parsed_way)
+void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const ExtractionWay &parsed_way, std::vector<int> &used_node_id)
 {
     if (((0 >= parsed_way.forward_speed) ||
          (TRAVEL_MODE_INACCESSIBLE == parsed_way.forward_travel_mode)) &&
@@ -306,6 +330,11 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
                    std::back_inserter(external_memory.used_node_id_list),
                    [](const osmium::NodeRef &ref) { return OSMNodeID{static_cast<std::uint64_t>(ref.ref())}; });
 
+    //enregistre tous les nodes utilisés dans un vecteur
+    for( const auto it : input_way.nodes()) {
+          used_node_id.push_back(it.ref());
+      }
+
     const bool is_opposite_way = TRAVEL_MODE_INACCESSIBLE == parsed_way.forward_travel_mode;
 
     // traverse way in reverse in this case
@@ -395,5 +424,139 @@ void ExtractorCallbacks::ProcessWay(const osmium::Way &input_way, const Extracti
              OSMNodeID{static_cast<std::uint64_t>(input_way.nodes()[0].ref())}});
     }
 }
+
+
+/*
+* Add new edges from gtfs parser
+* Representation of public transport :  bus , tram
+*/
+void ExtractorCallbacks::ProcessWayGtfs(const int source, const int target, const ExtractionWay &parsed_way, const int id_way)
+{
+    if (source == target) {
+        return;
+    }
+
+    InternalExtractorEdge::WeightData forward_weight_data;
+    InternalExtractorEdge::WeightData backward_weight_data;
+
+    if (0 < parsed_way.duration)
+    {
+
+        forward_weight_data.duration = parsed_way.duration;
+        forward_weight_data.type = InternalExtractorEdge::WeightType::WAY_DURATION;
+        backward_weight_data.duration = parsed_way.duration;
+        backward_weight_data.type = InternalExtractorEdge::WeightType::WAY_DURATION;
+    }
+    else
+    {
+        //Set forward and backward data       
+        forward_weight_data.speed = parsed_way.forward_speed;
+        forward_weight_data.type = InternalExtractorEdge::WeightType::SPEED;       
+        backward_weight_data.speed = parsed_way.backward_speed;
+        backward_weight_data.type = InternalExtractorEdge::WeightType::SPEED;
+    }
+
+    //road_classification bus or tram
+    //TODO : make the difference between bus and tram
+    guidance::RoadClassificationData road_classification;
+    road_classification.road_class = guidance::functionalRoadClassFromTag("bus");
+
+    const constexpr auto MAX_STRING_LENGTH = 255u;
+
+    /*// Get the unique identifier for the street name
+    const auto name_iterator = string_map.find(parsed_way.name);
+    unsigned name_id = external_memory.name_lengths.size();
+    if (string_map.end() == name_iterator)
+    {
+        auto name_length = std::min<unsigned>(MAX_STRING_LENGTH, parsed_way.name.size());
+
+        external_memory.name_char_data.reserve(name_id + name_length);
+        std::copy(parsed_way.name.c_str(),
+                  parsed_way.name.c_str() + name_length,
+                  std::back_inserter(external_memory.name_char_data));
+
+        external_memory.name_lengths.push_back(name_length);
+
+        auto pronunciation_length = std::min<unsigned>(255u, parsed_way.pronunciation.size());
+        std::copy(parsed_way.pronunciation.c_str(), parsed_way.pronunciation.c_str() + pronunciation_length,
+                  std::back_inserter(external_memory.name_char_data));
+        external_memory.name_lengths.push_back(pronunciation_length);
+
+        string_map.insert(std::make_pair(parsed_way.name, name_id));
+    }
+    else
+    {
+        name_id = name_iterator->second;
+    }*/
+
+
+
+    const auto name_iterator = string_map.find(MapKey(parsed_way.name, parsed_way.destinations));
+    unsigned name_id = external_memory.name_lengths.size();
+    if (string_map.end() == name_iterator)
+    {
+        auto name_length = std::min<unsigned>(MAX_STRING_LENGTH, parsed_way.name.size());
+        auto destinations_length =
+            std::min<unsigned>(MAX_STRING_LENGTH, parsed_way.destinations.size());
+        auto pronunciation_length =
+            std::min<unsigned>(MAX_STRING_LENGTH, parsed_way.pronunciation.size());
+
+        external_memory.name_char_data.reserve(name_id + name_length + destinations_length +
+                                               pronunciation_length);
+
+        std::copy(parsed_way.name.c_str(),
+                  parsed_way.name.c_str() + name_length,
+                  std::back_inserter(external_memory.name_char_data));
+
+        std::copy(parsed_way.destinations.c_str(),
+                  parsed_way.destinations.c_str() + destinations_length,
+                  std::back_inserter(external_memory.name_char_data));
+
+        std::copy(parsed_way.pronunciation.c_str(),
+                  parsed_way.pronunciation.c_str() + pronunciation_length,
+                  std::back_inserter(external_memory.name_char_data));
+
+        external_memory.name_lengths.push_back(name_length);
+        external_memory.name_lengths.push_back(destinations_length);
+        external_memory.name_lengths.push_back(pronunciation_length);
+
+        auto k = MapKey{parsed_way.name, parsed_way.destinations};
+        auto v = MapVal{name_id};
+        string_map.emplace(std::move(k), std::move(v));
+    }
+    else
+    {
+        name_id = name_iterator->second;
+    }
+
+    //external_memory.used_node_id_list.reserve(external_memory.used_node_id_list.size() + 2);
+
+    external_memory.used_node_id_list.push_back(OSMNodeID{static_cast<std::uint64_t>(source)});
+    external_memory.used_node_id_list.push_back(OSMNodeID{static_cast<std::uint64_t>(target)});
+
+    external_memory.all_edges_list.push_back(
+        InternalExtractorEdge(OSMNodeID{static_cast<std::uint64_t>(source)},
+                              OSMNodeID{static_cast<std::uint64_t>(target)},
+                              name_id,
+                              forward_weight_data,
+                              true,
+                              true,
+                              parsed_way.roundabout,
+                              parsed_way.is_access_restricted,
+                              parsed_way.is_startpoint,
+                              parsed_way.forward_travel_mode,
+                              false,
+                              INVALID_LANE_DESCRIPTIONID,
+                              road_classification));
+
+    external_memory.way_start_end_id_list.push_back(
+            {OSMWayID{static_cast<std::uint32_t>(id_way)},
+             OSMNodeID{static_cast<std::uint64_t>(target)},
+             OSMNodeID{static_cast<std::uint64_t>(source)},
+             OSMNodeID{static_cast<std::uint64_t>(target)},
+             OSMNodeID{static_cast<std::uint64_t>(source)}});
+}
+
+
 }
 }

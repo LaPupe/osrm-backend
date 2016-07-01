@@ -49,6 +49,11 @@
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
+#include <map>
+#include <string>
+#include <cmath>
+
+#include <Python.h>
 
 namespace osrm
 {
@@ -134,6 +139,14 @@ int Extractor::run()
         boost::filesystem::ofstream timestamp_out(config.timestamp_file_name);
         timestamp_out.write(timestamp.c_str(), timestamp.length());
 
+        //tableau associatif pour stocker les noeuds "bus_stop". <distance, node_id>
+        std::map<int, util::DoubleCoordinate> bus_stop_osm;
+
+        //tableau associatif pour stocker les nodes
+        std::map<int, util::DoubleCoordinate> osmNodes;
+
+        std::vector<int> used_node_id;
+
         // initialize vectors holding parsed objects
         tbb::concurrent_vector<std::pair<std::size_t, ExtractionNode>> resulting_nodes;
         tbb::concurrent_vector<std::pair<std::size_t, ExtractionWay>> resulting_ways;
@@ -207,18 +220,188 @@ int Extractor::run()
             {
                 extractor_callbacks->ProcessNode(
                     static_cast<const osmium::Node &>(*(osm_elements[result.first])),
-                    result.second);
+                    result.second, bus_stop_osm, osmNodes);
             }
             for (const auto &result : resulting_ways)
             {
                 extractor_callbacks->ProcessWay(
-                    static_cast<const osmium::Way &>(*(osm_elements[result.first])), result.second);
+                    static_cast<const osmium::Way &>(*(osm_elements[result.first])), result.second, used_node_id);
             }
             for (const auto &result : resulting_restrictions)
             {
                 extractor_callbacks->ProcessRestriction(result);
             }
         }
+
+
+        //tableau associatif pour stocker used nodes
+        std::map<int, util::DoubleCoordinate> usedNodes;
+
+        //tableau associatif pour enregistrer tous les nodes utilisés
+        //permet de etablir le lien entre 1 stop et les chemins
+        for (auto iterator : used_node_id) {
+            usedNodes[iterator] = osmNodes[iterator];
+            //printf("%d   %d\n", usedNodes[osmNodes[iterator]], iterator);
+        }
+
+        //Tableau associatif
+        std::map<std::string, int> nodesRef;
+
+        PyObject *pName, *pModule, *pFunc;
+        PyObject *pValue;
+        int i, j;
+        ExtractionWay result_way;
+
+        Py_Initialize();
+
+        pName = PyUnicode_FromString("testForOsrm");
+        pModule = PyImport_Import(pName);
+        Py_DECREF(pName);
+
+        if (pModule != NULL) {
+            pFunc = PyObject_GetAttrString(pModule, "stop_list");
+            // pFunc is a new reference 
+
+            if (pFunc && PyCallable_Check(pFunc)) {
+                
+                //lancer la fonction dans le script Python et recuperer la valeur de retour
+                //2 tableaux qui contiennent des stops et puis des arcs
+                pValue = PyObject_CallObject(pFunc, NULL);
+
+                if (pValue != NULL) {
+
+                    if (PyList_Check(pValue)) {
+
+                        //recuperer les stops
+                        PyObject *pStops = PyList_GetItem(pValue, 0);
+                        for (i = 0; i < (int) PyList_Size(pStops); i++) {
+                            PyObject *pStopsEachRoute = PyList_GetItem(pStops, i);
+
+                            for (j = 0; j < (int) PyList_Size(pStopsEachRoute); j++) {
+                                number_of_nodes++;
+                                number_of_ways++;
+                                PyObject *pStop = PyList_GetItem(pStopsEachRoute, j);
+                                char *stop_id = PyString_AsString(PyList_GetItem(pStop, 0));
+                                double lat = PyFloat_AsDouble(PyList_GetItem(pStop, 1));
+                                double lon = PyFloat_AsDouble(PyList_GetItem(pStop, 2));
+
+                                int indice = 0;
+                                double diff = 99999;
+                                for(const auto it : bus_stop_osm)
+                                {
+                                    double diff_lat = fabs(lat - it.second.lat);
+                                    double diff_lon = fabs(lon - it.second.lon);
+
+                                    if (diff > diff_lat + diff_lon) {
+                                        indice = it.first;
+                                        diff = diff_lat + diff_lon;
+                                    }
+                                }
+                                nodesRef[stop_id] = indice;
+                                
+                                if(strcmp("POPHA_02", stop_id) == 0 || strcmp("FASAV_04", stop_id) == 0) {
+                                    printf("%d \n", nodesRef[stop_id]);
+                                    printf("%lf  %lf\n", lat, lon);
+                                }
+
+                                int indice2 = 0;
+                                double diff2 = 999999;
+                                for(const auto it2 : usedNodes)
+                                {
+                                    double diff_lat2 = fabs(lat - it2.second.lat);
+                                    double diff_lon2 = fabs(lon - it2.second.lon);
+
+                                    if (diff2 > diff_lat2 + diff_lon2) {
+                                        indice2 = it2.first;
+                                        diff2 = diff_lat2 + diff_lon2;
+                                    }
+                                }
+
+                                result_way.clear();
+                                result_way.forward_speed = 5;
+                                result_way.backward_speed = 5;
+                                result_way.duration = -1;
+                                result_way.name = PyString_AsString(PyList_GetItem(pStop, 0));
+
+                                std::string s = std::to_string(indice2);
+                                result_way.name += " <---> ";
+                                result_way.name += s;
+                                
+                                result_way.roundabout = false;
+                                result_way.is_access_restricted = false;
+                                result_way.is_startpoint = false;
+                                
+                                result_way.forward_travel_mode = TRAVEL_MODE_WALKING;
+                                result_way.backward_travel_mode = TRAVEL_MODE_WALKING;
+
+                                int source = indice;
+                                int target = indice2;
+
+                                extractor_callbacks->ProcessWayGtfs(source, target, result_way, number_of_ways);
+
+                            }
+                        }
+                        
+                        //recuperer les arcs
+                        PyObject *pEdges = PyList_GetItem(pValue, 1);
+                        printf("nb d'arcs = %d\n", (int) PyList_Size(pEdges));
+
+                        for (i = 0; i < (int) PyList_Size(pEdges); i++) {
+                            number_of_ways++;
+                            result_way.clear();
+                            PyObject *pEdge = PyList_GetItem(pEdges, i);
+                            result_way.forward_speed = 40;
+                            result_way.backward_speed = 40;
+                            result_way.duration = PyFloat_AsDouble(PyList_GetItem(pEdge, 2));
+
+                            result_way.name = PyString_AsString(PyList_GetItem(pEdge, 3)) ;
+                            result_way.roundabout = false;
+                            result_way.is_access_restricted = false;
+                            result_way.is_startpoint = true;
+                            result_way.forward_travel_mode = TRAVEL_MODE_DRIVING;
+                            result_way.backward_travel_mode = TRAVEL_MODE_DRIVING;
+                            
+
+                            int source = nodesRef[PyString_AsString(PyList_GetItem(pEdge, 0))];
+                            int target = nodesRef[PyString_AsString(PyList_GetItem(pEdge, 1))];
+
+                            if(source == target || strcmp("FASAV_04", PyString_AsString(PyList_GetItem(pEdge, 0))) == 0  || strcmp("FASAV_04", PyString_AsString(PyList_GetItem(pEdge, 1))) == 0) {
+                                printf("%s =  %d     %s = %d    %s\n", PyString_AsString(PyList_GetItem(pEdge, 0)), source, PyString_AsString(PyList_GetItem(pEdge, 1)), target, PyString_AsString(PyList_GetItem(pEdge, 3)));
+                            }
+                            
+
+                            extractor_callbacks->ProcessWayGtfs(source, target, result_way, number_of_ways);
+                        }
+
+                    }
+                    
+                    Py_DECREF(pValue);
+                }
+                else {
+                    Py_DECREF(pFunc);
+                    Py_DECREF(pModule);
+                    PyErr_Print();
+                    printf("Call failed\n");
+                    return 1;
+                }
+
+            } else {
+                if (PyErr_Occurred())
+                    PyErr_Print();
+                fprintf(stderr, "Cannot find function \n");
+            }
+            Py_XDECREF(pFunc);
+            Py_DECREF(pModule);
+
+        }else {
+            PyErr_Print();
+            fprintf(stderr, "Failed to load \n");
+            return 1;
+        }
+
+        Py_Finalize();
+
+
         TIMER_STOP(parsing);
         util::SimpleLogger().Write() << "Parsing finished after " << TIMER_SEC(parsing)
                                      << " seconds";
