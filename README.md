@@ -82,3 +82,49 @@ When using the code in a (scientific) publication, please cite
 }
 ```
 
+## Transport en commun
+
+ce projet est basé sur le projet Open Source Routing Machine (OSRM) en C++ et réalisé principalement avec les données de Open Street Map (OSM) de la région Alsace et les données de la Compagnie des Transport Strasbourgeois (CTS).
+
+### Implémentation :
+
+Le projet OSRM est très efficace en terme de performance. Après les sites de comparaison, le temps moyen pour trouver le chemin le plus court avec OSRM est bien plus rapide que d'autres moteurs d'itinéraires comme Google, Cloudmade, MapQuest, etc...([lien](http://geotribu.net/node/520#footnote2_wm1g6rz)) Notamment grace à un nouveau mécanique d'optimisation : la Contracttion Hierarchies. Puisque l'OSRM donne autant d'avantages, mon objectif pour cette implémentation est d'apportter le moins de modifications possibles afin de conserver ces performances.
+
+#### Extraction des données de la CTS
+	La récuperation des données utiles à partir des données fournies par la CTS. Ces données sont en format GTFS. Bien évidement, plusieur parser de ce type de donnée sont disponible mais malheureusement aucun n'est en C++. J'ai décidé de prendre le parser Transitfeed en Python, écrit par Google qui gère actuellement de diffuser les données du format GTFS.
+	Les informations récupérés à partir de ces données corrigent un gros défaut des données d'OSM. En effet, les données d'OSM nous fournissent les trajet de Bus/Tram ainsi que les arrets mais les informations fournis ne nous permettent pas de calculer la distance exactes entre 2 arrets, sans cet information, il nous est impossible de calculer le temps de parcours entre 2 arrets. Et donc avec les données de la CTS, on peut extraire cet information. 
+	Les informations utiles sont: les arrets de bus et tram(id, longitude, latitude), les arcs qui representent e lien entre 2 arrets successives (id source, id destination, durée entre 2 arrets).
+	Tout cette phase est réalisé en Python dans le script testForOsrm.py dans le dossier python.
+
+#### Intégration des nouvelles données dans OSRM
+	L'intégration de ces nouvelles données sont effectuée après l'extraction des données de l'OSM pour plusieurs raisons. L'ajout d'un nouveau noeud ou d'un nouveau arc est très délicat, car OSRM demande id d'un noeud qui existe dans les données de l'OSM. On ne peut pas ajouter un noeud ou un arc de façon hasard parce que OSRM fait appel ensuite aux coordonnées (longitude, latitude) de ce noeud pour calculer la distance d'un arc.
+	Heuresment, comme j'ai précisé précédement, l'OSM nous fournit les arrets de Bus/Tram avec les coordonnées. J'ai donc sauvegardé les noeuds de l'OSM qui représentent les arret de Bus/Tram et ensuite comparer ces coordonnées avec les données récupérées depuis le script python. Après ce traitement, j'obtient l'id de l' OSM correspondant à chaque arret des données de la CTS.
+	J'ai aussi utilisé la même mécanique pour trouver le noeud le plus proche des arrets de Bus/Tram afin de relier le réseau de transport au réseau de routier.
+	Cette phase est réalisé dans le fichier source de OSRM extractor.cpp.
+	L'ajout des arcs devient plus facile, néanmoins, j'ai dû ajouter une nouvelle fonction pour ajouter des arcs qui me semble plus adapté.
+
+
+### Source des données :
+	Données OSM : [data OSM](http://download.geofabrik.de/europe/france/alsace.html). (format osm.pbf)
+	Données CTS : [data CTS](http://www.gtfs-data-exchange.com/meta/9798402)
+
+### Running :
+	Installer OSRM et tous les dépendants de OSRM.
+	Installer le parser du format GTFS : [transitfeed](https://github.com/google/transitfeed)
+	Nous avons utilisé du python dans le fichier extractor.ccp, vous devez donc linker avec la bibliotheque python. Dans 
+	```
+	build/CMakeFiles/EXTRACTOR.dir/build.make 
+	```
+	cherchez extractor.cpp.o et ajoutez à la fin de la commande 
+	```
+	-I votre_bibli_python 
+	```
+
+	Dans 
+	```
+	build/CMakeFiles/osrm-extract.dir/link.txt 
+	```
+	ajoutez à la fin
+	```
+	-framework Python 
+	```
