@@ -106,7 +106,21 @@ J'ai aussi utilisé la même mécanique pour trouver le noeud le plus proche des
 
 Cette phase est réalisé dans le fichier source de OSRM extractor.cpp.
 
-L'ajout des arcs devient plus facile, néanmoins, j'ai dû ajouter une nouvelle fonction pour ajouter des arcs qui me semble plus adapté.
+L'ajout des arcs devient plus facile, néanmoins, j'ai dû ajouter une nouvelle fonction pour ajouter des arcs (ProcessWayGtfs) qui me semble plus adapté. La fonction pour ajouter des noeuds (ProcessNode) a été modifié pour stocker des informations utiles.
+
+### Conclusion :
+
+#### Graphe statique
+Pour bien comprendre ce problème, il faut d'abord savoir quelles sont les étapes suivies par OSRM avant d'arriver à un graphe final qui est utilisé pour trouver le plus court chemin ([lien transformation de graphe et la contraction hierarchies](https://github.com/Project-OSRM/osrm-backend/wiki/Processing-Flow)). Pour résumer, OSRM extrait les données de l'OSM, crée des noeuds, des arcs et transforme en un edges-expanded graph ([graph representation](https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation)). Ensuite, OSRM applique la contraction hierarchies sur ce graphe afin d'obtenir le graph final.
+
+#### Transformation du graphe très difficile
+A cause de tous ces transformations, la mécanique de d'optimisation qui sont effectués en pre-proccessing, il sera très difficile de pouvoir modifier le graph final.
+Revenons à un probleme que j'ai rencontré durant l'implémentation, la sélection du bus. En effet, si 2 arrets sont désservis par 2 bus différents, l'algorithme choisira un bus aléatoirement alors que l'idéale serait de prendre le même bus qui était précedement prise en compte.
+La solution proposé est d'ajouter des noeuds, des arcs pour favoriser le bus utilisé. Mais comme préciser plus haut, OSRM demande un id qui existe dans les données de l'OSM qui nous empêche d'ajouter un noeuds quelconque. Tout simplement, parce que l'OSRM uitlise les coordonnées de ces noeuds pour calculer les poids des arcs.
+Un petit résumé sur comment les poids des arcs sont calculer. Tout d'abord, le poids d'un arc est le temps utlisé pour parcourir les 2 noeuds d'un arc. Il y a 2 méthode pour calculer ce poids, la première est de donner directement le temps c'est ce que j'ai utlisé pour ajouter les arcs qui représentent le réseau de transport en commun. La deuxième méthode est de calculer la distance entre 2 noeuds grâce aux coordonnées des noeuds et ensuite calculer le temps grâce la vitesse, la pluspart des arcs sont calculer de cette façon.
+
+#### Mon avis
+Le projet OSRM offre la meilleure performance parmi de nombreux moteur d'intinéraire. Néanmoins, le graphe proposé par OSRM est complétement statique ou bien plus précisément, il sera très difficile de transformer ce graphe pour adapter à une situation donnée.  
 
 
 ### Source des données :
@@ -120,20 +134,12 @@ Installer le parser du format GTFS : [transitfeed](https://github.com/google/tra
 
 Les données de la CTS doivent être dans le fichier python et nommé ctsdata.zip
 
-Nous avons utilisé du python dans le fichier extractor.ccp, vous devez donc linker avec la bibliotheque python. Dans 
-```
-build/CMakeFiles/EXTRACTOR.dir/build.make 
-```
-cherchez extractor.cpp.o et ajoutez à la fin de la commande 
+Nous avons utilisé du python dans le fichier extractor.ccp, vous devez donc linker avec la bibliotheque python. Dans build/CMakeFiles/EXTRACTOR.dir/build.make cherchez extractor.cpp.o et ajoutez à la fin de la commande 
 ```
 -I votre_bibli_python 
 ```
 
-Dans 
-```
-build/CMakeFiles/osrm-extract.dir/link.txt 
-```
-ajoutez à la fin
+Dans build/CMakeFiles/osrm-extract.dir/link.txt ajoutez à la fin
 ```
 -framework Python 
 ```
