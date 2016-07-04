@@ -88,20 +88,20 @@ Ce projet est basé sur le projet Open Source Routing Machine (OSRM) en C++ et r
 
 ### Implémentation :
 
-Le projet OSRM est très efficace en terme de performance. Après les sites de comparaison, le temps moyen pour trouver le chemin le plus court avec OSRM est bien plus rapide que d'autres moteurs d'itinéraires comme Google, Cloudmade, MapQuest, etc...([lien](http://geotribu.net/node/520#footnote2_wm1g6rz)) Notamment grace à un nouveau mécanique d'optimisation : la Contracttion Hierarchies. Puisque l'OSRM donne autant d'avantages, mon objectif pour cette implémentation est d'apportter le moins de modifications possibles afin de conserver ces performances.
+Le projet OSRM est très efficace en terme de performance. Après les sites de comparaison, le temps moyen pour trouver le chemin le plus court avec OSRM est bien plus rapide que d'autres moteurs d'itinéraires comme Google, Cloudmade, MapQuest, etc...([lien](http://geotribu.net/node/520#footnote2_wm1g6rz)) Notamment grace à une nouvelle mécanique d'optimisation : la Contraction Hierarchies. Puisque l'OSRM donne autant d'avantages, mon objectif pour cette implémentation est d'apportter le moins de modifications possibles afin de conserver ces performances.
 
 #### Extraction des données de la CTS
 La récuperation des données utiles à partir des données fournies par la CTS. Ces données sont en format GTFS. Bien évidement, plusieur parser de ce type de donnée sont disponible mais malheureusement aucun n'est en C++. J'ai décidé de prendre le parser Transitfeed en Python, écrit par Google qui gère actuellement de diffuser les données du format GTFS.
 
-Les informations récupérés à partir de ces données corrigent un gros défaut des données d'OSM. En effet, les données d'OSM nous fournissent les trajet de Bus/Tram ainsi que les arrets mais les informations fournis ne nous permettent pas de calculer la distance exactes entre 2 arrets, sans cet information, il nous est impossible de calculer le temps de parcours entre 2 arrets. Et donc avec les données de la CTS, on peut extraire cet information. 
+Les informations récupérés à partir de ces données corrigent un gros défaut des données d'OSM. En effet, les données d'OSM nous fournissent les trajet de Bus/Tram ainsi que les arrets mais les informations fournis ne nous permettent pas de calculer la distance exactes entre 2 arrets, sans cet information, il nous est impossible de calculer le temps de parcours entre 2 arrets. Et grâce aux données de la CTS, on peut extraire cet information. 
 
-Les informations utiles sont: les arrets de bus et tram(id, longitude, latitude), les arcs qui representent e lien entre 2 arrets successives (id source, id destination, durée entre 2 arrets).
+Les informations utiles sont: les arrets de bus et tram(id, longitude, latitude), les arcs qui representent le lien entre 2 arrets successives (id source, id destination, durée entre 2 arrets).
 Tout cette phase est réalisé en Python dans le script testForOsrm.py dans le dossier python.
 
 #### Intégration des nouvelles données dans OSRM
 L'intégration de ces nouvelles données sont effectuée après l'extraction des données de l'OSM pour plusieurs raisons. L'ajout d'un nouveau noeud ou d'un nouveau arc est très délicat, car OSRM demande id d'un noeud qui existe dans les données de l'OSM. On ne peut pas ajouter un noeud ou un arc de façon hasard parce que OSRM fait appel ensuite aux coordonnées (longitude, latitude) de ce noeud pour calculer la distance d'un arc.
 
-Heuresment, comme j'ai précisé précédement, l'OSM nous fournit les arrets de Bus/Tram avec les coordonnées. J'ai donc sauvegardé les noeuds de l'OSM qui représentent les arret de Bus/Tram et ensuite comparer ces coordonnées avec les données récupérées depuis le script python. Après ce traitement, j'obtient l'id de l' OSM correspondant à chaque arret des données de la CTS.
+Heuresement, comme j'ai précisé précédemment, l'OSM nous fournit les arrets de Bus/Tram avec les coordonnées. J'ai donc sauvegardé les noeuds de l'OSM qui représentent les arret de Bus/Tram et ensuite comparer ces coordonnées avec les données récupérées depuis le script python. Après ce traitement, j'obtient l'id de l' OSM correspondant à chaque arret des données de la CTS.
 J'ai aussi utilisé la même mécanique pour trouver le noeud le plus proche des arrets de Bus/Tram afin de relier le réseau de transport au réseau de routier.
 
 Cette phase est réalisé dans le fichier source de OSRM extractor.cpp.
@@ -115,16 +115,20 @@ Pour bien comprendre ce problème, il faut d'abord savoir quelles sont les étap
 
 #### Transformation du graphe très difficile
 A cause de tous ces transformations, la mécanique de d'optimisation qui sont effectués en pre-proccessing, il sera très difficile de pouvoir modifier le graph final.
+
 Revenons à un probleme que j'ai rencontré durant l'implémentation, la sélection du bus. En effet, si 2 arrets sont désservis par 2 bus différents, l'algorithme choisira un bus aléatoirement alors que l'idéale serait de prendre le même bus qui était précedement prise en compte.
+
 La solution proposé est d'ajouter des noeuds, des arcs pour favoriser le bus utilisé. Mais comme préciser plus haut, OSRM demande un id qui existe dans les données de l'OSM qui nous empêche d'ajouter un noeuds quelconque. Tout simplement, parce que l'OSRM uitlise les coordonnées de ces noeuds pour calculer les poids des arcs.
+
 Un petit résumé sur comment les poids des arcs sont calculer. Tout d'abord, le poids d'un arc est le temps utlisé pour parcourir les 2 noeuds d'un arc. Il y a 2 méthode pour calculer ce poids, la première est de donner directement le temps c'est ce que j'ai utlisé pour ajouter les arcs qui représentent le réseau de transport en commun. La deuxième méthode est de calculer la distance entre 2 noeuds grâce aux coordonnées des noeuds et ensuite calculer le temps grâce la vitesse, la pluspart des arcs sont calculer de cette façon.
 
 #### Mon avis
-Le projet OSRM offre la meilleure performance parmi de nombreux moteur d'intinéraire. Néanmoins, le graphe proposé par OSRM est complétement statique ou bien plus précisément, il sera très difficile de transformer ce graphe pour adapter à une situation donnée.  
+Le projet OSRM offre la meilleure performance parmi de nombreux moteurs d'intinéraire. Néanmoins, le graphe proposé par OSRM est complétement statique ou bien plus précisément, il sera très difficile de transformer ce graphe pour adapter à une situation donnée.  
 
 
 ### Source des données :
 Données OSM : [data OSM](http://download.geofabrik.de/europe/france/alsace.html) (format osm.pbf).
+
 Données CTS : [data CTS](http://www.gtfs-data-exchange.com/meta/9798402).
 
 ### Running :
