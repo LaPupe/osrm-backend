@@ -7,7 +7,7 @@ import sys
 
 def stop_list():
 
-	feed_name = "../../../gtfs_parser/google_transit/data.zip"
+	feed_name = "../python/ctsdata.zip"
 	feed_name = feed_name.strip()
 
 	loader = transitfeed.Loader(feed_name)
@@ -32,6 +32,8 @@ def stop_list():
 		#contient les stops de chaque route
 		stop_each_route = []
 
+		if len(route._trips) == 0:
+			continue
 		#first trip
 		trip = route._trips[0]
 
@@ -82,37 +84,70 @@ def stop_list():
 	return list_gtfs
 
 
-# def stop_time():
-# 	feed_name = "../../../gtfs_parser/google_transit/data.zip"
-# 	feed_name = feed_name.strip()
+# TODO : il faut un script plus generique
+def stop_time():
+	feed_name = "../../../gtfs_parser/google_transit/data.zip"
+	feed_name = feed_name.strip()
 
-# 	loader = transitfeed.Loader(feed_name)
-# 	data = loader.Load()
+	loader = transitfeed.Loader(feed_name)
+	data = loader.Load()
 
-# 	list_gtfs = []
-	
-# 	list_intermediaire = []
+	list_gtfs = []
+	list_intermediaire = []
 
-# 	for route in data.GetRouteList():
-# 		list_stop = []
-# 		trip = route._trips[0]
+	for route in data.GetRouteList():
+		list_stop = []
+		list_trip = []
 
-# 		for stop_time in trip.GetStopTimes():
+		trip = route._trips[0]
 
-# 			if any(stop_time.stop_id in id for id in list_intermediaire) == False:
-# 				list_intermediaire.append(stop_time.stop_id)
+		for stop_time in trip.GetStopTimes():
 
-# 		for stop in list_intermediaire:
-# 			list_time = []
-# 			for stop_time in trip.GetStopTimes():
-# 				if stop == stop_time.stop_id:
-# 					list_time.append(stop_time.departure_time)
+			if any(stop_time.stop_id in id for id in list_intermediaire) == False:
+				list_intermediaire.append(stop_time.stop_id)
 
-# 			list_stop.append([stop, list_time])
-# 		list_gtfs.append([route.route_id, list_stop])
+		for stop in list_intermediaire:
+			list_time = []
+			print 
 
-# 	return list_gtfs
+			for trip in route._trips:
+				for stop_time in trip.GetStopTimes():
+					if stop == stop_time.stop_id:
+						list_time.append(stop_time.departure_secs)
+
+			list_time = list(set(list_time))
+			list_time.sort()
+			list_stop.append([stop, list_time])
+		list_gtfs.append([route.route_id, list_stop])
+
+	for route in list_gtfs:
+		print "route : " + route[0]
+
+		for stop in route[1]:
+			print "     stop : " + stop[0]
+
+			for horaire in stop[1]:
+				print "            horaire : " + horaire
+
+	return list_gtfs
+
+def print_trips():
+	feed_name = "../python/ctsdata.zip"
+	feed_name = feed_name.strip()
+
+	loader = transitfeed.Loader(feed_name)
+	data = loader.Load()
+
+	for route in data.GetRouteList():
+		print "route : " + route.route_id
+		for trip in route._trips:
+			print "trip : " + trip.trip_id
 
 
 if __name__ == '__main__':
     stop_list()
+
+
+
+
+
