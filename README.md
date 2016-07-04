@@ -110,13 +110,15 @@ L'ajout des arcs devient plus facile, néanmoins, j'ai dû ajouter une nouvelle 
 
 
 ### Source des données :
-Données OSM : [data OSM](http://download.geofabrik.de/europe/france/alsace.html). (format osm.pbf)
-Données CTS : [data CTS](http://www.gtfs-data-exchange.com/meta/9798402)
+Données OSM : [data OSM](http://download.geofabrik.de/europe/france/alsace.html) (format osm.pbf).
+Données CTS : [data CTS](http://www.gtfs-data-exchange.com/meta/9798402).
 
 ### Running :
 Installer OSRM et tous les dépendants de OSRM.
 
 Installer le parser du format GTFS : [transitfeed](https://github.com/google/transitfeed)
+
+Les données de la CTS doivent être dans le fichier python et nommé ctsdata.zip
 
 Nous avons utilisé du python dans le fichier extractor.ccp, vous devez donc linker avec la bibliotheque python. Dans 
 ```
